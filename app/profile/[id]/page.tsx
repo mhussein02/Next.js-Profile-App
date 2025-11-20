@@ -1,69 +1,69 @@
-import { sql } from "@/lib/neon";
 import { notFound } from "next/navigation";
+import { sql, mapRow } from "@/lib/neon";
+import ProfileActions from "@/components/ProfileActions";
 
-type ProfileRow = {
-  id: number;
-  name: string;
-  title: string;
-  bio: string | null;
-  image_url: string | null;
+type Params = {
+  params: {
+    id: string;
+  };
 };
 
-type Props = {
-  params: { id: string };
-};
+export const dynamic = "force-dynamic";
 
-async function getProfile(id: number): Promise<ProfileRow | null> {
-  const rows = await sql<ProfileRow[]>`
+async function getProfileById(id: number) {
+  const rows = await sql`
     SELECT id, name, title, bio, image_url
     FROM profiles
     WHERE id = ${id}
+    LIMIT 1
   `;
+
   if (!rows.length) return null;
-  return rows[0];
+  return mapRow(rows[0]);
 }
 
-export async function generateMetadata({ params }: Props) {
+export async function generateMetadata({ params }: Params) {
   const id = Number(params.id);
   if (!Number.isInteger(id)) {
-    return { title: "Profile not found" };
+    return { title: "Profile" };
   }
-  const profile = await getProfile(id);
+
+  const profile = await getProfileById(id);
   if (!profile) {
-    return { title: "Profile not found" };
+    return { title: "Profile" };
   }
+
   return {
-    title: `${profile.name} • Profile`
+    title: `${profile.name} | Profile`,
   };
 }
 
-export default async function ProfileDetailPage({ params }: Props) {
+export default async function ProfileDetailPage({ params }: Params) {
   const id = Number(params.id);
-  if (!Number.isInteger(id)) {
-    notFound();
-  }
+  if (!Number.isInteger(id)) notFound();
 
-  const profile = await getProfile(id);
-  if (!profile) {
-    notFound();
-  }
+  const profile = await getProfileById(id);
+  if (!profile) notFound();
 
   return (
-    <div className="container">
-      <h1 className="h1">{profile.name}</h1>
-      <p className="title">{profile.title}</p>
-      <div style={{ marginTop: 16, display: "flex", gap: 24 }}>
-        {profile.image_url && (
-          <img
-            src={profile.image_url}
-            alt={profile.name}
-            style={{ maxWidth: 240, borderRadius: 16, objectFit: "cover" }}
-          />
-        )}
-        <p style={{ maxWidth: 480 }}>
-          {profile.bio || "No bio provided yet for this profile."}
-        </p>
+    <main className="container">
+      <div className="grid">
+        <div className="card">
+          {profile.imageUrl && (
+            <img
+              src={profile.imageUrl}
+              alt={profile.name}
+              className="profile-image"
+            />
+          )}
+          <h1 className="name">{profile.name}</h1>
+          <p className="title">{profile.title}</p>
+          {profile.bio && <p className="desc">{profile.bio}</p>}
+        </div>
+
+        {/* Edit / Delete buttons component */}
+        <ProfileActions id={profile.id} />
       </div>
-    </div>
+    </main>
   );
 }
